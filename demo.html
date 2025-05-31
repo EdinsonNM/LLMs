@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Visualization - Prototipo de Tesis</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #0a0a0a;
+        color: #fff;
+        overflow: hidden;
+      }
+
+      #canvas-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(20, 20, 20, 0.9);
+        padding: 20px;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 300px;
+        transition: all 0.3s;
+      }
+
+      #mode-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .mode-btn {
+        flex: 1;
+        padding: 10px;
+        background: rgba(74, 158, 255, 0.2);
+        border: 1px solid #4a9eff;
+        color: #4a9eff;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 12px;
+      }
+
+      .mode-btn.active {
+        background: #4a9eff;
+        color: #000;
+      }
+
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        opacity: 0.8;
+      }
+
+      .slider {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 5px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
+
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #4a9eff;
+        cursor: pointer;
+      }
+
+      #info-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(20, 20, 20, 0.9);
+        padding: 20px;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 300px;
+        transition: all 0.3s;
+      }
+
+      .metric {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+
+      .metric-value {
+        color: #4a9eff;
+        font-weight: bold;
+      }
+
+      #tooltip {
+        position: absolute;
+        background: rgba(30, 30, 30, 0.95);
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 14px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        border: 1px solid rgba(74, 158, 255, 0.3);
+        max-width: 250px;
+        z-index: 1000;
+      }
+
+      #input-simulation {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(20, 20, 20, 0.9);
+        padding: 20px;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 80%;
+        max-width: 600px;
+      }
+
+      #text-input {
+        width: 100%;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        color: #fff;
+        font-size: 14px;
+      }
+
+      #process-btn {
+        margin-top: 10px;
+        padding: 10px 20px;
+        background: #4a9eff;
+        border: none;
+        border-radius: 5px;
+        color: #000;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      #process-btn:hover {
+        background: #6ab0ff;
+      }
+
+      /* Estilos para modo estudiante */
+      .student-mode #info-panel {
+        background: rgba(20, 40, 20, 0.9);
+        border: 1px solid rgba(100, 255, 100, 0.2);
+      }
+
+      .student-mode .metric-value {
+        color: #4aff9e;
+      }
+
+      .student-help {
+        display: none;
+        background: rgba(74, 158, 255, 0.1);
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .student-mode .student-help {
+        display: block;
+      }
+
+      /* Panel de componentes */
+      #component-selector {
+        position: absolute;
+        top: 50%;
+        left: 20px;
+        transform: translateY(-50%);
+        background: rgba(20, 20, 20, 0.9);
+        padding: 15px;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .component-btn {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 5px;
+        background: rgba(74, 158, 255, 0.2);
+        border: 1px solid rgba(74, 158, 255, 0.5);
+        color: #4a9eff;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 11px;
+        transition: all 0.3s;
+      }
+
+      .component-btn.active {
+        background: rgba(74, 158, 255, 0.5);
+        border-color: #4a9eff;
+      }
+
+      .component-btn:hover {
+        background: rgba(74, 158, 255, 0.3);
+      }
+
+      /* Estilos adicionales para modo investigador */
+      .researcher-mode #controls {
+        max-width: 350px;
+      }
+
+      .researcher-mode .advanced-controls {
+        display: block !important;
+      }
+
+      .advanced-controls {
+        display: none;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .debug-info {
+        font-family: "Courier New", monospace;
+        font-size: 11px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-container">
+      <canvas id="three-canvas"></canvas>
+    </div>
+
+    <div id="controls">
+      <h3 style="margin-bottom: 15px">Modo de Visualización</h3>
+      <div id="mode-selector">
+        <button class="mode-btn active" data-mode="student">Estudiante</button>
+        <button class="mode-btn" data-mode="researcher">Investigador</button>
+      </div>
+
+      <div class="control-group">
+        <label for="layer-visibility">Capas Visibles</label>
+        <input
+          type="range"
+          id="layer-visibility"
+          class="slider"
+          min="1"
+          max="12"
+          value="6"
+        />
+        <div class="student-help">
+          💡 Las capas representan niveles de procesamiento. Más capas =
+          comprensión más profunda.
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="animation-speed">Velocidad de Animación</label>
+        <input
+          type="range"
+          id="animation-speed"
+          class="slider"
+          min="0.1"
+          max="2"
+          step="0.1"
+          value="1"
+        />
+      </div>
+
+      <div class="control-group">
+        <label for="connection-threshold">Umbral de Conexiones</label>
+        <input
+          type="range"
+          id="connection-threshold"
+          class="slider"
+          min="0"
+          max="1"
+          step="0.1"
+          value="0.5"
+        />
+        <div class="student-help">
+          💡 Ajusta qué conexiones son lo suficientemente fuertes para
+          mostrarse.
+        </div>
+      </div>
+
+      <div class="advanced-controls">
+        <h4 style="margin-bottom: 10px">Controles Avanzados</h4>
+        <div class="control-group">
+          <label for="attention-heads">Cabezas de Atención</label>
+          <input
+            type="range"
+            id="attention-heads"
+            class="slider"
+            min="1"
+            max="16"
+            value="8"
+          />
+        </div>
+        <div class="control-group">
+          <label for="embedding-dim">Dimensión de Embedding</label>
+          <input
+            type="range"
+            id="embedding-dim"
+            class="slider"
+            min="128"
+            max="1024"
+            step="128"
+            value="512"
+          />
+        </div>
+        <div class="debug-info" id="debug-console">> Sistema inicializado</div>
+      </div>
+    </div>
+
+    <div id="component-selector">
+      <h4 style="margin-bottom: 10px; font-size: 12px">Componentes</h4>
+      <button class="component-btn active" data-component="tokenizer">
+        Tokenizador
+      </button>
+      <button class="component-btn active" data-component="embedding">
+        Embedding
+      </button>
+      <button class="component-btn active" data-component="attention">
+        Atención
+      </button>
+      <button class="component-btn active" data-component="neural">
+        Red Neural
+      </button>
+      <button class="component-btn active" data-component="output">
+        Salida
+      </button>
+    </div>
+
+    <div id="info-panel">
+      <h3 style="margin-bottom: 15px">Métricas en Tiempo Real</h3>
+      <div class="metric">
+        <span>Tokens Procesados</span>
+        <span class="metric-value" id="token-count">0</span>
+      </div>
+      <div class="metric">
+        <span>Dimensión Embedding</span>
+        <span class="metric-value" id="embedding-info">512D</span>
+      </div>
+      <div class="metric">
+        <span>Atención Activa</span>
+        <span class="metric-value" id="attention-score">0%</span>
+      </div>
+      <div class="metric">
+        <span>Neuronas Activas</span>
+        <span class="metric-value" id="active-neurons">0</span>
+      </div>
+      <div class="metric">
+        <span>Confianza Promedio</span>
+        <span class="metric-value" id="confidence">0%</span>
+      </div>
+      <div class="metric">
+        <span>Capas Procesadas</span>
+        <span class="metric-value" id="layers-processed">0/12</span>
+      </div>
+      <div class="student-help">
+        💡 Estas métricas muestran qué tan activo está el modelo mientras
+        procesa tu texto.
+      </div>
+    </div>
+
+    <div id="input-simulation">
+      <input
+        type="text"
+        id="text-input"
+        placeholder="Escribe algo para visualizar el procesamiento..."
+      />
+      <button id="process-btn">Procesar Texto</button>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      // Configuración inicial
+      let scene, camera, renderer;
+      let components = {
+        tokenizer: { group: null, visible: true },
+        embedding: { group: null, visible: true },
+        attention: { group: null, visible: true },
+        neural: { group: null, visible: true },
+        output: { group: null, visible: true },
+      };
+      let mode = "student";
+      let animationSpeed = 1;
+      let isProcessing = false;
+      let raycaster, mouse;
+      let hoveredObject = null;
+
+      // Colores por componente
+      const componentColors = {
+        tokenizer: 0xff6b6b,
+        embedding: 0x4ecdc4,
+        attention: 0xffe66d,
+        neural: 0x4a9eff,
+        output: 0xa8e6cf,
+      };
+
+      // Inicializar Three.js
+      function init() {
+        // Escena
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x0a0a0a, 10, 100);
+
+        // Cámara
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        camera.position.set(0, 5, 40);
+        camera.lookAt(0, 0, 0);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({
+          canvas: document.getElementById("three-canvas"),
+          antialias: true,
+          alpha: true,
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // Raycaster para detección de mouse
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+
+        // Luces
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(0x4a9eff, 1, 100);
+        pointLight1.position.set(0, 10, 20);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xff6b6b, 0.5, 100);
+        pointLight2.position.set(-20, 0, 0);
+        scene.add(pointLight2);
+
+        // Crear componentes del LLM
+        createLLMComponents();
+
+        // Controles de ratón
+        setupMouseControls();
+
+        // Event listeners
+        setupEventListeners();
+
+        // Iniciar animación
+        animate();
+      }
+
+      function createLLMComponents() {
+        // 1. Tokenizador
+        createTokenizer();
+
+        // 2. Capa de Embedding
+        createEmbeddingLayer();
+
+        // 3. Mecanismo de Atención
+        createAttentionMechanism();
+
+        // 4. Red Neural Principal
+        createNeuralNetwork();
+
+        // 5. Capa de Salida
+        createOutputLayer();
+      }
+
+      function createTokenizer() {
+        const group = new THREE.Group();
+        group.position.set(-25, 0, 0);
+
+        // Crear tokens como cubos
+        for (let i = 0; i < 8; i++) {
+          const geometry = new THREE.BoxGeometry(1.5, 0.5, 0.5);
+          const material = new THREE.MeshPhongMaterial({
+            color: componentColors.tokenizer,
+            emissive: componentColors.tokenizer,
+            emissiveIntensity: 0,
+          });
+
+          const token = new THREE.Mesh(geometry, material);
+          token.position.set(0, i * 1.5 - 5, 0);
+          token.userData = {
+            type: "token",
+            index: i,
+            component: "tokenizer",
+          };
+
+          group.add(token);
+        }
+
+        components.tokenizer.group = group;
+        scene.add(group);
+      }
+
+      function createEmbeddingLayer() {
+        const group = new THREE.Group();
+        group.position.set(-15, 0, 0);
+
+        // Matriz de embedding visualizada como una cuadrícula
+        const embedSize = 8;
+        const embedDim = 8;
+
+        for (let i = 0; i < embedSize; i++) {
+          for (let j = 0; j < embedDim; j++) {
+            const geometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const material = new THREE.MeshPhongMaterial({
+              color: componentColors.embedding,
+              emissive: componentColors.embedding,
+              emissiveIntensity: 0,
+            });
+
+            const embed = new THREE.Mesh(geometry, material);
+            embed.position.set(j * 0.5 - 2, i * 0.5 - 2, 0);
+            embed.userData = {
+              type: "embedding",
+              row: i,
+              col: j,
+              component: "embedding",
+            };
+
+            group.add(embed);
+          }
+        }
+
+        components.embedding.group = group;
+        scene.add(group);
+      }
+
+      function createAttentionMechanism() {
+        const group = new THREE.Group();
+        group.position.set(-5, 0, 0);
+
+        // Crear cabezas de atención
+        const numHeads = 8;
+        const radius = 3;
+
+        for (let i = 0; i < numHeads; i++) {
+          const angle = (i / numHeads) * Math.PI * 2;
+
+          // Cabeza de atención
+          const headGeometry = new THREE.ConeGeometry(0.5, 1, 8);
+          const headMaterial = new THREE.MeshPhongMaterial({
+            color: componentColors.attention,
+            emissive: componentColors.attention,
+            emissiveIntensity: 0,
+          });
+
+          const head = new THREE.Mesh(headGeometry, headMaterial);
+          head.position.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius,
+            0
+          );
+          head.rotation.z = angle + Math.PI / 2;
+          head.userData = {
+            type: "attention_head",
+            index: i,
+            component: "attention",
+          };
+
+          group.add(head);
+
+          // Líneas de atención (inicialmente invisibles)
+          for (let j = 0; j < numHeads; j++) {
+            if (i !== j) {
+              const lineGeometry = new THREE.BufferGeometry();
+              const lineMaterial = new THREE.LineBasicMaterial({
+                color: componentColors.attention,
+                opacity: 0,
+                transparent: true,
+              });
+
+              const line = new THREE.Line(lineGeometry, lineMaterial);
+              line.userData = {
+                type: "attention_line",
+                from: i,
+                to: j,
+                component: "attention",
+              };
+
+              group.add(line);
+            }
+          }
+        }
+
+        components.attention.group = group;
+        scene.add(group);
+      }
+
+      function createNeuralNetwork() {
+        const group = new THREE.Group();
+        group.position.set(8, 0, 0);
+
+        const layers = [];
+        const layerSizes = [10, 16, 20, 16, 10];
+        const layerSpacing = 3;
+
+        // Crear capas de neuronas
+        for (let l = 0; l < layerSizes.length; l++) {
+          const layer = [];
+          const layerSize = layerSizes[l];
+          const zOffset = (l - (layerSizes.length - 1) / 2) * layerSpacing;
+
+          for (let n = 0; n < layerSize; n++) {
+            const y = (n - (layerSize - 1) / 2) * 0.8;
+
+            const geometry = new THREE.SphereGeometry(0.25, 12, 12);
+            const material = new THREE.MeshPhongMaterial({
+              color: componentColors.neural,
+              emissive: componentColors.neural,
+              emissiveIntensity: 0,
+              wireframe: false,
+            });
+
+            const neuron = new THREE.Mesh(geometry, material);
+            neuron.position.set(0, y, zOffset);
+            neuron.userData = {
+              type: "neuron",
+              layer: l,
+              index: n,
+              activation: 0,
+              component: "neural",
+            };
+
+            group.add(neuron);
+            layer.push(neuron);
+          }
+
+          layers.push(layer);
+        }
+
+        // Crear conexiones entre capas
+        for (let l = 0; l < layers.length - 1; l++) {
+          const currentLayer = layers[l];
+          const nextLayer = layers[l + 1];
+
+          currentLayer.forEach((neuron1, i) => {
+            nextLayer.forEach((neuron2, j) => {
+              if (Math.random() > 0.7) {
+                // Conexiones selectivas
+                const geometry = new THREE.BufferGeometry().setFromPoints([
+                  neuron1.position,
+                  neuron2.position,
+                ]);
+
+                const material = new THREE.LineBasicMaterial({
+                  color: componentColors.neural,
+                  opacity: 0.05,
+                  transparent: true,
+                });
+
+                const connection = new THREE.Line(geometry, material);
+                connection.userData = {
+                  type: "connection",
+                  from: neuron1,
+                  to: neuron2,
+                  strength: Math.random(),
+                  component: "neural",
+                };
+
+                group.add(connection);
+              }
+            });
+          });
+        }
+
+        components.neural.group = group;
+        components.neural.layers = layers;
+        scene.add(group);
+      }
+
+      function createOutputLayer() {
+        const group = new THREE.Group();
+        group.position.set(20, 0, 0);
+
+        // Crear nodos de salida
+        const outputSize = 10;
+
+        for (let i = 0; i < outputSize; i++) {
+          const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+          const material = new THREE.MeshPhongMaterial({
+            color: componentColors.output,
+            emissive: componentColors.output,
+            emissiveIntensity: 0,
+          });
+
+          const output = new THREE.Mesh(geometry, material);
+          output.position.set(0, i * 1.2 - 5, 0);
+          output.userData = {
+            type: "output",
+            index: i,
+            probability: 0,
+            component: "output",
+          };
+
+          group.add(output);
+        }
+
+        components.output.group = group;
+        scene.add(group);
+      }
+
+      function setupMouseControls() {
+        let mouseX = 0,
+          mouseY = 0;
+        let isMouseDown = false;
+        let rotationY = 0;
+
+        document.addEventListener("mousemove", (event) => {
+          mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+          mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+          // Actualizar posición del mouse para raycaster
+          mouse.x = mouseX;
+          mouse.y = mouseY;
+
+          // Rotación si se mantiene presionado el mouse
+          if (isMouseDown) {
+            rotationY += mouseX * 0.01;
+
+            // Rotar todos los componentes
+            Object.values(components).forEach((comp) => {
+              if (comp.group) {
+                comp.group.rotation.y = rotationY;
+              }
+            });
+          }
+
+          // Mostrar tooltip en modo estudiante
+          if (mode === "student") {
+            checkHover(event);
+          }
+        });
+
+        document.addEventListener("mousedown", () => {
+          isMouseDown = true;
+        });
+
+        document.addEventListener("mouseup", () => {
+          isMouseDown = false;
+        });
+
+        // Zoom con rueda del ratón
+        document.addEventListener("wheel", (event) => {
+          camera.position.z += event.deltaY * 0.01;
+          camera.position.z = Math.max(20, Math.min(60, camera.position.z));
+        });
+
+        // Controles avanzados para modo investigador
+        if (document.getElementById("attention-heads")) {
+          document
+            .getElementById("attention-heads")
+            .addEventListener("input", (e) => {
+              const heads = parseInt(e.target.value);
+              updateDebugConsole(`Cabezas de atención ajustadas a: ${heads}`);
+            });
+        }
+
+        if (document.getElementById("embedding-dim")) {
+          document
+            .getElementById("embedding-dim")
+            .addEventListener("input", (e) => {
+              const dim = parseInt(e.target.value);
+              document.getElementById("embedding-info").textContent = `${dim}D`;
+              updateDebugConsole(`Dimensión de embedding: ${dim}`);
+            });
+        }
+      }
+
+      function updateVisualizationMode() {
+        const body = document.body;
+
+        if (mode === "student") {
+          body.classList.add("student-mode");
+          body.classList.remove("researcher-mode");
+
+          // Simplificar visualización
+          if (components.neural.group) {
+            components.neural.group.children.forEach((child) => {
+              if (child.material) {
+                child.material.wireframe = false;
+                if (child.userData.type === "connection") {
+                  child.material.opacity = 0.05;
+                }
+              }
+            });
+          }
+
+          // Ocultar debug console
+          hideTooltip();
+        } else {
+          body.classList.add("researcher-mode");
+          body.classList.remove("student-mode");
+
+          // Mostrar más detalles técnicos
+          if (components.neural.group) {
+            components.neural.group.children.forEach((child) => {
+              if (child.material && child.userData.type === "neuron") {
+                child.material.wireframe = true;
+              }
+              if (child.userData.type === "connection") {
+                child.material.opacity = 0.1;
+              }
+            });
+          }
+
+          updateDebugConsole("Modo investigador activado");
+        }
+      }
+
+      function updateDebugConsole(message) {
+        if (mode === "researcher") {
+          const console = document.getElementById("debug-console");
+          if (console) {
+            const time = new Date().toLocaleTimeString();
+            console.innerHTML += `\n> [${time}] ${message}`;
+            console.scrollTop = console.scrollHeight;
+          }
+        }
+      }
+
+      function processText() {
+        const text = document.getElementById("text-input").value;
+        if (!text || isProcessing) return;
+
+        isProcessing = true;
+        updateDebugConsole(`Procesando: "${text}"`);
+
+        // Simular tokenización
+        const tokens = text.split(/\s+/);
+        document.getElementById("token-count").textContent = tokens.length;
+
+        // Iniciar animación secuencial por componentes
+        animateFullPipeline(tokens);
+      }
+
+      function animateFullPipeline(tokens) {
+        let stage = 0;
+        const stages = [
+          () => animateTokenizer(tokens),
+          () => animateEmbedding(),
+          () => animateAttention(),
+          () => animateNeuralNetwork(),
+          () => animateOutput(),
+        ];
+
+        function nextStage() {
+          if (stage < stages.length) {
+            stages[stage]();
+            stage++;
+            setTimeout(nextStage, 1000 / animationSpeed);
+          } else {
+            isProcessing = false;
+            updateDebugConsole("Procesamiento completado");
+          }
+        }
+
+        nextStage();
+      }
+
+      function animateTokenizer(tokens) {
+        if (!components.tokenizer.visible || !components.tokenizer.group)
+          return;
+
+        updateDebugConsole(`Tokenizando ${tokens.length} tokens`);
+
+        components.tokenizer.group.children.forEach((token, index) => {
+          if (index < tokens.length) {
+            // Animar cada token
+            const delay = index * 100;
+            setTimeout(() => {
+              animateObject(token, 0, 2, 500);
+            }, delay);
+          }
+        });
+      }
+
+      function animateEmbedding() {
+        if (!components.embedding.visible || !components.embedding.group)
+          return;
+
+        updateDebugConsole("Generando embeddings");
+        document.getElementById("embedding-info").textContent = "512D ✓";
+
+        // Animar matriz de embedding como onda
+        components.embedding.group.children.forEach((embed, index) => {
+          const row = embed.userData.row;
+          const col = embed.userData.col;
+          const delay = (row + col) * 20;
+
+          setTimeout(() => {
+            animateObject(embed, 0, 1.5, 300);
+          }, delay);
+        });
+      }
+
+      function animateAttention() {
+        if (!components.attention.visible || !components.attention.group)
+          return;
+
+        updateDebugConsole("Calculando atención multi-cabeza");
+
+        const heads = components.attention.group.children.filter(
+          (child) => child.userData.type === "attention_head"
+        );
+
+        // Animar cabezas de atención
+        heads.forEach((head, index) => {
+          setTimeout(() => {
+            animateObject(head, 0, 2, 400);
+
+            // Mostrar líneas de atención brevemente
+            if (mode === "researcher") {
+              const lines = components.attention.group.children.filter(
+                (child) =>
+                  child.userData.type === "attention_line" &&
+                  child.userData.from === index
+              );
+
+              lines.forEach((line) => {
+                line.material.opacity = 0.3;
+                setTimeout(() => {
+                  line.material.opacity = 0;
+                }, 500);
+              });
+            }
+          }, index * 100);
+        });
+
+        // Actualizar métrica de atención
+        const attentionScore = Math.round(Math.random() * 30 + 60);
+        document.getElementById(
+          "attention-score"
+        ).textContent = `${attentionScore}%`;
+      }
+
+      function animateNeuralNetwork() {
+        if (!components.neural.visible || !components.neural.layers) return;
+
+        updateDebugConsole("Procesando a través de capas transformer");
+
+        let currentLayer = 0;
+
+        function processLayer() {
+          if (currentLayer >= components.neural.layers.length) return;
+
+          document.getElementById("layers-processed").textContent = `${
+            currentLayer + 1
+          }/${components.neural.layers.length}`;
+
+          const layer = components.neural.layers[currentLayer];
+
+          // Activar neuronas en la capa
+          layer.forEach((neuron, index) => {
+            const activation = Math.random();
+            neuron.userData.activation = activation;
+
+            setTimeout(() => {
+              animateObject(neuron, 0, activation * 2, 300);
+            }, index * 20);
+          });
+
+          // Actualizar métricas
+          const activeNeurons = Math.round(
+            layer.length * 0.3 + Math.random() * layer.length * 0.4
+          );
+          document.getElementById("active-neurons").textContent = activeNeurons;
+
+          currentLayer++;
+          setTimeout(processLayer, 400 / animationSpeed);
+        }
+
+        processLayer();
+      }
+
+      function animateOutput() {
+        if (!components.output.visible || !components.output.group) return;
+
+        updateDebugConsole("Generando distribución de probabilidad de salida");
+
+        // Generar probabilidades simuladas
+        const outputs = components.output.group.children;
+        let totalProb = 0;
+        const probs = outputs.map(() => Math.random());
+        const sum = probs.reduce((a, b) => a + b, 0);
+
+        outputs.forEach((output, index) => {
+          const probability = probs[index] / sum;
+          output.userData.probability = probability;
+
+          setTimeout(() => {
+            animateObject(output, 0, probability * 3, 400);
+          }, index * 50);
+        });
+
+        // Actualizar confianza final
+        const confidence = Math.round((Math.max(...probs) / sum) * 100);
+        document.getElementById("confidence").textContent = `${confidence}%`;
+      }
+
+      function animateObject(
+        object,
+        initialIntensity,
+        targetIntensity,
+        duration
+      ) {
+        if (!object.material) return;
+
+        const start = performance.now();
+        const material = object.material;
+
+        function updateAnimation(time) {
+          const elapsed = time - start;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // Curva de animación suave
+          const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+          material.emissiveIntensity =
+            initialIntensity +
+            (targetIntensity - initialIntensity) * easeProgress;
+
+          if (progress < 1) {
+            requestAnimationFrame(updateAnimation);
+          } else {
+            // Fade out
+            const fadeStart = performance.now();
+            function fade(time) {
+              const fadeProgress = Math.min(
+                (time - fadeStart) / (duration / 2),
+                1
+              );
+              material.emissiveIntensity = targetIntensity * (1 - fadeProgress);
+
+              if (fadeProgress < 1) {
+                requestAnimationFrame(fade);
+              }
+            }
+            requestAnimationFrame(fade);
+          }
+        }
+
+        requestAnimationFrame(updateAnimation);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Rotación suave de algunos elementos
+        if (components.attention.group) {
+          components.attention.group.rotation.z += 0.001 * animationSpeed;
+        }
+
+        // Pequeña animación idle para embeddings
+        if (components.embedding.group) {
+          components.embedding.group.children.forEach((embed, i) => {
+            embed.position.z = Math.sin(Date.now() * 0.001 + i * 0.1) * 0.1;
+          });
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // Ajustar al cambiar tamaño de ventana
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Inicializar
+      init();
+      updateVisualizationMode();
+
+      function checkHover(event) {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        if (intersects.length > 0) {
+          const object = intersects[0].object;
+          if (object.userData.type && hoveredObject !== object) {
+            hoveredObject = object;
+            showTooltip(event, object.userData);
+          }
+        } else {
+          hideTooltip();
+          hoveredObject = null;
+        }
+      }
+      function showTooltip(event, data) {
+        const tooltip = document.getElementById("tooltip");
+        let content = "";
+        switch (data.type) {
+          case "token":
+            content = `<strong>Token ${data.index}</strong><br />
+      Cada palabra se convierte en un token numérico que el modelo puede procesar.`;
+            break;
+          case "embedding":
+            content = `<strong
+        >Embedding [${data.row},${data.col}]</strong
+      ><br />
+      Representación vectorial que captura el significado semántico.`;
+            break;
+          case "attention_head":
+            content = `<strong>Cabeza de Atención ${data.index}</strong
+      ><br />
+      Analiza relaciones entre diferentes partes del texto.`;
+            break;
+          case "neuron":
+            content = `<strong>Neurona [Capa ${data.layer}]</strong><br />
+      Procesa y transforma la información. Activación: ${(
+        data.activation * 100
+      ).toFixed(1)}%`;
+            break;
+          case "output":
+            content = `<strong
+        >Salida ${data.index}</strong
+      ><br />
+      Probabilidad de la siguiente palabra: ${(data.probability * 100).toFixed(
+        1
+      )}%`;
+            break;
+        }
+        tooltip.innerHTML = content;
+        tooltip.style.left = event.clientX + 10 + "px";
+        tooltip.style.top = event.clientY + 10 + "px";
+        tooltip.style.opacity = "1";
+      }
+
+      function hideTooltip() {
+        const tooltip = document.getElementById("tooltip");
+        tooltip.style.opacity = "0";
+      }
+
+      function setupMouseControls() {
+        let mouseX = 0,
+          mouseY = 0;
+        let isMouseDown = false;
+        let rotationY = 0;
+
+        document.addEventListener("mousemove", (event) => {
+          mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+          mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+          // Actualizar posición del mouse para raycaster
+          mouse.x = mouseX;
+          mouse.y = mouseY;
+
+          // Rotación si se mantiene presionado el mouse
+          if (isMouseDown) {
+            rotationY += mouseX * 0.01;
+
+            // Rotar todos los componentes
+            Object.values(components).forEach((comp) => {
+              if (comp.group) {
+                comp.group.rotation.y = rotationY;
+              }
+            });
+          }
+
+          // Mostrar tooltip en modo estudiante
+          if (mode === "student") {
+            checkHover(event);
+          }
+        });
+
+        document.addEventListener("mousedown", () => {
+          isMouseDown = true;
+        });
+
+        document.addEventListener("mouseup", () => {
+          isMouseDown = false;
+        });
+
+        // Zoom con rueda del ratón
+        document.addEventListener("wheel", (event) => {
+          camera.position.z += event.deltaY * 0.01;
+          camera.position.z = Math.max(20, Math.min(60, camera.position.z));
+        });
+      }
+
+      function setupEventListeners() {
+        // Cambio de modo
+        document.querySelectorAll(".mode-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            document
+              .querySelectorAll(".mode-btn")
+              .forEach((b) => b.classList.remove("active"));
+            e.target.classList.add("active");
+            mode = e.target.dataset.mode;
+            updateVisualizationMode();
+          });
+        });
+
+        // Controles de componentes
+        document.querySelectorAll(".component-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            const component = e.target.dataset.component;
+            components[component].visible = !components[component].visible;
+            e.target.classList.toggle("active");
+
+            if (components[component].group) {
+              components[component].group.visible =
+                components[component].visible;
+            }
+          });
+        });
+
+        // Controles deslizantes
+        document
+          .getElementById("layer-visibility")
+          .addEventListener("input", (e) => {
+            const visibleLayers = parseInt(e.target.value);
+            if (components.neural.layers) {
+              components.neural.layers.forEach((layer, index) => {
+                layer.forEach((neuron) => {
+                  neuron.visible = index < visibleLayers;
+                });
+              });
+            }
+          });
+
+        // Procesamiento de texto
+        document
+          .getElementById("process-btn")
+          .addEventListener("click", processText);
+        document
+          .getElementById("text-input")
+          .addEventListener("keypress", (e) => {
+            if (e.key === "Enter") processText();
+          });
+      }
+    </script>
+  </body>
+</html>
